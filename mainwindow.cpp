@@ -32,16 +32,20 @@ mainwindow::mainwindow(QWidget *parent):
     connect(targetScreen->back, SIGNAL (clicked()), this, SLOT (targetScreenCancelled()));
     connect(targetScreen, SIGNAL(sendTarget(int)), this, SLOT(slotSendTarget(int)));
     connect(actionScreen->move, SIGNAL(clicked()), this, SLOT(slotSendMove()));
-    connect(actionScreen->cancel, SIGNAL(clicked()), this, SLOT(slotSendCancel()));
-    connect(actionScreen->back, SIGNAL(clicked()), this, SLOT(actionScreenCancelled()));
+    connect(actionScreen->cancel, SIGNAL(clicked()), this, SLOT(actionScreenCancelled()));
+    //connect(actionScreen->back, SIGNAL(clicked()), this, SLOT(actionScreenCancelled()));
+    connect(this, SIGNAL(targetChange(int)), this, SLOT(slotTargetChange(int)));
+    connect(connectScreen->viewTargetsButton, SIGNAL(clicked()), this, SLOT(slotViewTargetScreen()));
 
 }
-
+/*
+ * establish connection through openIGTlink to slicer server
+*/
 void mainwindow::connectToServer()
 {
     //Establish Connection
-    char* hostname = "localhost" ;
-    int portNum = 18944;
+    char* hostname = connectScreen->getIp();
+    int portNum = connectScreen ->getPort();
     socket = igtl::ClientSocket::New();
     int r = socket->ConnectToServer(hostname, portNum);
 
@@ -61,14 +65,14 @@ void mainwindow::connectToServer()
         if(strcmp(receiveMessage(), "SlicerHandshake") == 0)
         {
             //move to wait window
-            stack -> setCurrentWidget(waitScreen);
-            sendMessage("NumberOfTargets");
-            receiveNumberOfTargets();
-
             connectScreen->connectButton -> setText("Connected");
             connectScreen->connectButton -> setEnabled(false);
             connectScreen->disconnectButton -> setEnabled(true);
             connectScreen->disconnectButton -> setText("Disconnect");
+
+            stack -> setCurrentWidget(waitScreen);
+            sendMessage("NumberOfTargets");
+            receiveNumberOfTargets();
         }
 
         else
@@ -78,6 +82,9 @@ void mainwindow::connectToServer()
     }
 }
 
+/*
+ * end connection through openIGTlink to slicer server
+*/
 void mainwindow::disconnectFromServer()
 {
     socket->CloseSocket();
@@ -89,6 +96,10 @@ void mainwindow::disconnectFromServer()
     connectScreen ->connectButton -> setText("Connect");
 }
 
+
+/*
+ * send string message through openIGTlink to slicer server
+*/
 void mainwindow::sendMessage(const char* msg)
 {
     statMsg -> SetCode(1);
@@ -98,6 +109,10 @@ void mainwindow::sendMessage(const char* msg)
     qDebug() << "Sent: " << statMsg -> GetStatusString();
 }
 
+
+/*
+ * receive string message through openIGTlink to slicer server
+*/
 const char* mainwindow::receiveMessage()
 {
     igtl::MessageHeader::Pointer headerMsg;
@@ -111,42 +126,51 @@ const char* mainwindow::receiveMessage()
         message = "error";
     }
 
-    if (r != headerMsg->GetPackSize())
+    else if (r != headerMsg->GetPackSize())
     {
         message = "noMessage";
     }
 
-    headerMsg->Unpack();
+    else
+    {
+        headerMsg->Unpack();
 
-    recMsg = igtl::StatusMessage::New();
+        recMsg = igtl::StatusMessage::New();
 
-    recMsg->SetMessageHeader(headerMsg);
-    recMsg->AllocatePack();
+        recMsg->SetMessageHeader(headerMsg);
+        recMsg->AllocatePack();
 
-    // Receive data from the socket
-    socket->Receive(recMsg->GetPackBodyPointer(), recMsg->GetPackBodySize());
+        // Receive data from the socket
+        socket->Receive(recMsg->GetPackBodyPointer(), recMsg->GetPackBodySize());
 
-    recMsg->Unpack();
+        recMsg->Unpack();
 
-    if (recMsg->GetCode() == 2) // correct code from slicer
-         {
+        if (recMsg->GetCode() == 2) // correct code from slicer
+            {
               message = recMsg -> GetStatusString();
-          }
+            }
+    }
+
     qDebug() <<"Received: " << message;
     return message;
 
 }
 
+/*
+ * go back button clicked in wait screen, return to connection screen
+*/
 void mainwindow::waitCancelled()
 {
     stack->setCurrentWidget(connectScreen);
 }
 
+/*
+ * initial loop to receive number of targets from slicer
+*/
 void mainwindow::receiveNumberOfTargets()
 {
     bool noTargets = true;
     const char* received;
-    int numTar = 0;
 
     while (noTargets)
     {
@@ -168,7 +192,7 @@ void mainwindow::receiveNumberOfTargets()
 
         else if(strcmp(received, "") != 0) //message was received
         {
-            if (strlen(received) > 1)
+            if (strncmp(received, "NewNumberOfTargets",18) == 0)
             {
                 std::string sReceived = received;
                 int loc = sReceived.find(",");
@@ -176,10 +200,12 @@ void mainwindow::receiveNumberOfTargets()
                 numTar = num - '0';
             }
 
-            else
+            else if (strlen(received)==1)
             {
                 numTar = atoi(received);
             }
+
+            //check other cases (cancelled, moving, done moving)
         }
 
         if (numTar != 0) //have targets
@@ -192,13 +218,96 @@ void mainwindow::receiveNumberOfTargets()
 
     targetScreen -> buildTargets(numTar);
     stack -> setCurrentWidget(targetScreen);
+    listen(numTar);
 
 
 } //end function
 
+/*
+ * loop to check if number of targets in slicer has changed and rebuild target screen accordingly
+*/
+void mainwindow::listen(int num)
+{
+    int currentNumTar = num;
+    bool noChange = true;
+    const char* received;
+
+    while (noChange)
+    {
+        received = receiveMessage();
+
+        if (strcmp(received, "noMessage") == 0) //slicer didn't send anything
+        {
+            //process events
+            QEventLoop eventloop(this);
+            eventloop.processEvents();
+            eventloop.exit();
+            continue;
+        }
+
+        else if (strcmp(received, "error") == 0)
+        {
+            break;
+        }
+
+        else if(strcmp(received, "") != 0) //message was received
+        {
+            if (strncmp(received, "NewNumberOfTargets",18) == 0)
+            {
+                std::string sReceived = received;
+                int loc = sReceived.find(",");
+                char num = sReceived[loc +1];
+                numTar = num - '0';
+            }
+
+            else if (strlen(received)==1)
+            {
+                numTar = atoi(received);
+            }
+
+            //check other cases (cancelled, moving, done moving)
+        }
+
+        if (numTar != 0) //have targets
+        {
+            currentNumTar = numTar;
+            noChange = false;
+            emit targetChange(currentNumTar);
+        }
+
+        else //deleted all targets
+        {
+            noChange = false;
+            stack -> setCurrentWidget(waitScreen);
+            receiveNumberOfTargets();
+        }
+
+      } //end loop
+}
+
+/*
+ * rebuild target screen with new number of targets
+*/
+void mainwindow::slotTargetChange(int num)
+{
+   if (stack-> currentWidget() == actionScreen)
+    {
+        stack->setCurrentWidget(targetScreen);
+        actionScreen -> reset();
+    }
+
+   targetScreen -> refresh();
+   targetScreen -> buildTargets(num);
+   listen(num);
+}
+
+/*
+ * back button clicked in target screen, return to connection screen
+*/
 void mainwindow::targetScreenCancelled()
 {
     stack -> setCurrentWidget(connectScreen);
+    connectScreen->viewTargetsButton->setVisible(true);
 }
 
 void mainwindow::slotSendTarget(int num)
@@ -219,6 +328,9 @@ void mainwindow::slotSendTarget(int num)
 
 }
 
+/*
+ * move button clicked in action screen, send move command to slicer
+*/
 void mainwindow::slotSendMove()
 {
     sendMessage("MoveRobot");
@@ -233,6 +345,7 @@ void mainwindow::slotSendMove()
     }
 }
 
+/*
 void mainwindow::slotSendCancel()
 {
     actionScreen-> tarCancel -> setVisible(true);
@@ -241,7 +354,11 @@ void mainwindow::slotSendCancel()
     sendMessage("CancelTarget");
     receiveMessage();
 }
+*/
 
+/*
+ * cancel button clicked in action screen, send cancel command to slicer and return to target screen
+*/
 void mainwindow::actionScreenCancelled()
 {
     sendMessage("CancelTarget");
@@ -250,9 +367,17 @@ void mainwindow::actionScreenCancelled()
     //reset screen
     actionScreen->move -> setEnabled(true);
     actionScreen->move->setText("Move robot");
-    actionScreen->tarCancel -> setVisible(false);
+    //actionScreen->tarCancel -> setVisible(false);
     actionScreen->cancel -> setEnabled(true);
 
     //go back to target selection
     stack -> setCurrentWidget(targetScreen);
+}
+
+/*
+ * return to target screen from connect screen
+*/
+void mainwindow::slotViewTargetScreen()
+{
+   stack -> setCurrentWidget(targetScreen);
 }

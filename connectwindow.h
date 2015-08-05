@@ -21,22 +21,20 @@ public:
     igtl::StatusMessage::Pointer statMsg;
     QPushButton* connectButton;
     QPushButton* disconnectButton;
+    QPushButton* viewTargetsButton;
+    char* getIp();
+    int getPort();
 private:
-    //QLineEdit* ipAdd;
-    //QLineEdit* port;
-    //const QRect screenSize;
-    //int portNum;
-    //char* hostname;
-    //int handshake();
+    QLineEdit* ipAdd;
+    QLineEdit* port;
+    int* portNum;
+    char* hostname;
+    bool inputIP;
+    bool inputPort;
 private slots:
-    //void getIp();
-    //void getPort();
-   // void connectToServer();
-    //void disconnectServer();
+    void readIp();
+    void readPort();
 signals:
-    //void connectedToServer();
-    //void socketCreated(igtl::ClientSocket::Pointer sckt, igtl::StatusMessage::Pointer status);
-    //void refresh();
 
 };
 

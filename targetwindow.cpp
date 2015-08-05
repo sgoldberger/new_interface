@@ -90,19 +90,14 @@ targetWindow::targetWindow(QWidget *parent):
     connect(target8, SIGNAL(clicked()),sigMapper, SLOT(map()));
     target8 -> setVisible(false);
 
-    //connect(back, SIGNAL (clicked()), this, SIGNAL (moveToWindow1()));
-    //connect(back, SIGNAL(clicked()), this, SLOT(hide()));
     connect(sigMapper, SIGNAL(mapped(int)), this, SLOT(targetSel(int)));
-    //connect(move, SIGNAL (clicked()), this, SLOT(moveSent()));
 
 }
 
 void targetWindow::targetSel(int num)
 {
    //send target selected to slicer
-
     emit sendTarget(num);
-
 
 }
 
@@ -162,7 +157,6 @@ void targetWindow::buildTargets(int num)
        //more than 8 targets
     }
 
-this -> show();
 }
 
 void targetWindow::refresh()

@@ -36,6 +36,8 @@ private:
     const char* receiveMessage();
     void receiveNumberOfTargets();
     std::string depth;
+    int numTar;
+    void listen(int num);
 private slots:
     void connectToServer();
     void disconnectFromServer();
@@ -43,10 +45,12 @@ private slots:
     void targetScreenCancelled();
     void slotSendTarget(int num);
     void slotSendMove();
-    void slotSendCancel();
+    //void slotSendCancel();
     void actionScreenCancelled();
+    void slotTargetChange(int num);
+    void slotViewTargetScreen();
 signals:
-
+    void targetChange(int num);
 };
 
 #endif // WINDOW1_H

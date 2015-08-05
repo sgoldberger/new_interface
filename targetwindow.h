@@ -20,6 +20,7 @@ public:
     targetWindow(QWidget *parent = 0);
     void buildTargets(int num);
     QPushButton* back;
+    void refresh();
 private:
     QPushButton* target1;
     QPushButton* target2;
@@ -33,13 +34,7 @@ private:
     QSignalMapper* sigMapper;
 private slots:
     void targetSel(int num);
-    //void recTar(igtl::ClientSocket::Pointer sckt, igtl::StatusMessage::Pointer status, int numTar);
-    void refresh();
-    //void moveSent();
 signals:
-    //void moveToWindow1();
-    //void moveToWindow3();
-    //void sendSocket(igtl::ClientSocket::Pointer sckt, igtl::StatusMessage::Pointer msg, int num, std::string depth);
     void sendTarget(int num);
 
 };
