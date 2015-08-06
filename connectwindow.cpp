@@ -5,10 +5,10 @@ connectWindow::connectWindow(QWidget* parent):
     QWidget(parent)
 {
     //set window
-    //const QRect screenSize = desktop->screenGeometry();
-    int screenW = 800;
-    int screenH = 600;
-    setGeometry(0,0,800,600);
+    QSize screenSize = parent->size();
+    int screenW = screenSize.width();
+    int screenH = screenSize.height();
+    //setGeometry(0,0,screenW,screenH);
     QPalette pal = this -> palette();
     pal.setColor(QPalette::Window, Qt::black);
     this->setPalette(pal);

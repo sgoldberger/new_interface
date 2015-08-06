@@ -9,15 +9,15 @@ mainwindow::mainwindow(QWidget *parent):
 
     int screenW = 800;
     int screenH = 600;
-    setGeometry(0,0,800,600);
+    setGeometry(0,0,screenW,screenH);
     QPalette pal = this -> palette();
     pal.setColor(QPalette::Window, Qt::black);
     this->setPalette(pal);
 
-    connectScreen = new connectWindow();
-    waitScreen = new waitWindow();
-    targetScreen = new targetWindow();
-    actionScreen = new actionWindow();
+    connectScreen = new connectWindow(this);
+    waitScreen = new waitWindow(this);
+    targetScreen = new targetWindow(this);
+    actionScreen = new actionWindow(this);
 
     stack = new QStackedWidget(this);
     stack -> setFixedSize(screenW, screenH);
@@ -320,7 +320,25 @@ void mainwindow::slotSendTarget(int num)
     sendMessage(targetMsg);
 
     //receive depth
-    std::string depth = receiveMessage();
+    bool noDepth = true;
+    std::string depth = "0.000000";
+    while(noDepth)
+    {
+        const char* msg = receiveMessage();
+        if (strcmp(msg, "noMessage")== 0)
+        {
+            //depth was not sent
+        }
+        else if (strcmp(msg, "")==0)
+        {
+            //error
+        }
+        else
+        {
+            depth = msg;
+            noDepth = false;
+        }
+    }
 
     actionScreen -> displayDepth(depth);
     actionScreen -> displayTarget(num);
